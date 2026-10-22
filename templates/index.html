@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Toolbox</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #0f1115; color: #e6e6e6;
+  }
+  .card { width: min(560px, 92vw); text-align: center; padding: 2rem 0; }
+  .card.wide { width: min(920px, 94vw); }
+  h1 { font-weight: 600; font-size: 1.5rem; margin: 0 0 1.25rem; }
+
+  .tabs { display: flex; gap: .5rem; justify-content: center; margin-bottom: 1.25rem; }
+  .tab {
+    flex: 1; padding: .6rem 1rem; border-radius: 10px; cursor: pointer;
+    background: #151821; border: 1px solid #262c38; color: #9fb0c8;
+    font-size: .95rem; transition: background .15s, color .15s, border-color .15s;
+  }
+  .tab.active { background: #1a2030; color: #e6e6e6; border-color: #4f8cff; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+  p.sub { color: #8b93a1; margin: 0 0 1.25rem; }
+
+  .drop {
+    border: 2px dashed #333a48; border-radius: 16px; padding: 2.5rem 1.5rem;
+    cursor: pointer; transition: border-color .15s, background .15s; background: #151821;
+  }
+  .drop.compact { padding: 1rem 1.5rem; }
+  .drop.compact .icon { display: none; }
+  .drop.hover { border-color: #4f8cff; background: #1a2030; }
+  .drop .icon { font-size: 2.5rem; }
+  .drop .hint { color: #8b93a1; font-size: .9rem; margin-top: .5rem; }
+  .drop a { color: #4f8cff; text-decoration: underline; cursor: pointer; }
+
+  .field { margin: 0 0 1rem; display: flex; gap: .5rem; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .field label { color: #9fb0c8; font-size: .95rem; }
+  .field input[type=number] {
+    width: 90px; padding: .5rem .6rem; border-radius: 8px; text-align: center;
+    background: #0f1115; border: 1px solid #333a48; color: #e6e6e6; font-size: 1rem;
+  }
+  .field .radio { display: inline-flex; align-items: center; gap: .3rem; color: #c8d2e0; font-size: .95rem; cursor: pointer; }
+
+  /* ── Queue (shrink tab) ── */
+  .queue { display: none; margin-top: 1rem; text-align: left; }
+  .queue.show { display: block; }
+  .queue ul {
+    list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto;
+    border: 1px solid #262c38; border-radius: 10px; background: #151821;
+  }
+  .queue li {
+    display: flex; align-items: center; gap: .6rem; padding: .45rem .75rem;
+    border-bottom: 1px solid #1e2330; font-size: .9rem;
+  }
+  .queue li:last-child { border-bottom: 0; }
+  .queue .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue .size { color: #8b93a1; font-variant-numeric: tabular-nums; }
+  .queue .rm {
+    background: none; border: 0; color: #8b93a1; cursor: pointer; font-size: 1rem;
+    padding: 0 .25rem; line-height: 1;
+  }
+  .queue .rm:hover { color: #ff6b6b; }
+  .actions { display: flex; gap: .5rem; justify-content: center; align-items: center; margin-top: .75rem; flex-wrap: wrap; }
+  .btn {
+    padding: .6rem 1.2rem; border-radius: 10px; border: 1px solid #4f8cff; cursor: pointer;
+    background: #4f8cff; color: #fff; font-size: .95rem; font-weight: 600;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: #9fb0c8; border-color: #333a48; font-weight: 400; }
+  .btn.ghost:hover:not(:disabled) { color: #e6e6e6; border-color: #4f8cff; }
+
+  /* ── Blur plate tab ── */
+  .editor { display: none; margin-top: 1rem; }
+  .editor.show { display: block; }
+  .canvas-wrap {
+    position: relative; display: inline-block; max-width: 100%; border-radius: 12px;
+    overflow: hidden; border: 1px solid #262c38; background: #000; line-height: 0;
+  }
+  .canvas-wrap canvas { max-width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+  .canvas-wrap .loading {
+    position: absolute; inset: 0; display: grid; place-items: center; color: #9fb0c8;
+    background: #151821; line-height: 1.4; font-size: .95rem;
+  }
+  .editor .tip { color: #8b93a1; font-size: .9rem; margin: .6rem 0 0; }
+  .tilt { visibility: hidden; margin-top: .5rem; }
+  .tilt.show { visibility: visible; }
+  .tilt input[type=range] { width: 220px; accent-color: #4f8cff; }
+  .tilt #blur-tilt-val { min-width: 3.2rem; text-align: left; color: #e6e6e6; font-variant-numeric: tabular-nums; }
+  .tilt .keys { color: #6f7887; font-size: .8rem; }
+  .nav { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .25rem; }
+  .nav span { color: #9fb0c8; font-size: .95rem; min-width: 9rem; }
+  .nav .btn { padding: .4rem .9rem; }
+  .thumbs { display: flex; gap: .5rem; overflow-x: auto; padding: .75rem 0 .25rem; }
+  /* Centered when they fit, scrollable from the left edge when they don't. */
+  .thumb:first-child { margin-left: auto; }
+  .thumb:last-child { margin-right: auto; }
+  .thumb {
+    position: relative; flex: 0 0 auto; width: 72px; height: 54px; border-radius: 8px; overflow: hidden;
+    border: 2px solid #262c38; cursor: pointer; background: #151821;
+  }
+  .thumb.active { border-color: #4f8cff; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .badge {
+    position: absolute; right: 3px; bottom: 3px; background: #4f8cff; color: #fff;
+    font-size: .7rem; font-weight: 600; border-radius: 6px; padding: 1px 5px;
+  }
+  .thumb .badge.none { background: #ff6b6b; }
+
+  .status { margin-top: 1.25rem; min-height: 1.4rem; color: #9fb0c8; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #4f8cff;
+    border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: -3px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .err { color: #ff6b6b; }
+  .ok { color: #58d68d; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h1>Image Toolbox</h1>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="convert">HEIC → PNG</div>
+      <div class="tab" data-tab="shrink">Shrink PNG</div>
+      <div class="tab" data-tab="blur">Blur plate</div>
+    </div>
+
+    <!-- ── Tab 1: HEIC → PNG ────────────────────────────── -->
+    <div class="panel active" id="panel-convert">
+      <p class="sub">Drop a folder of HEIC images. Get a ZIP of PNGs back.</p>
+      <div class="drop" data-drop="convert">
+        <div class="icon">📁</div>
+        <div>Drag &amp; drop a folder here, or click to choose one</div>
+        <div class="hint">Only .heic / .heif files are converted</div>
+      </div>
+      <input type="file" webkitdirectory multiple hidden data-picker="convert">
+      <div class="status" data-status="convert"></div>
+    </div>
+
+    <!-- ── Tab 2: Shrink PNG ────────────────────────────── -->
+    <div class="panel" id="panel-shrink">
+      <p class="sub">Add PNGs one at a time or in bulk, then shrink them all to your target size.</p>
+      <div class="field">
+        <label for="target">Target size per image:</label>
+        <input id="target" type="number" min="0.05" step="0.1" value="1"> MB
+      </div>
+      <div class="drop" data-drop="shrink">
+        <div class="icon">🖼️</div>
+        <div>Drag &amp; drop PNGs or folders here, or click to choose files</div>
+        <div class="hint">
+          <a data-pick-folder="shrink">Choose a whole folder</a> ·
+          already-small images pass through untouched
+        </div>
+      </div>
+      <input type="file" multiple accept=".png,image/png" hidden data-picker="shrink">
+      <input type="file" webkitdirectory multiple hidden data-folder-picker="shrink">
+
+      <div class="queue" data-queue="shrink">
+        <ul data-queue-list="shrink"></ul>
+        <div class="actions">
+          <button class="btn" data-run="shrink">Shrink 0 images</button>
+          <button class="btn ghost" data-clear="shrink">Clear</button>
+        </div>
+      </div>
+
+      <div class="status" data-status="shrink"></div>
+    </div>
+
+    <!-- ── Tab 3: Blur plate ────────────────────────────── -->
+    <div class="panel" id="panel-blur">
+      <p class="sub">Add your car photos, drag a box over the license plate in each one, then download.</p>
+      <div class="drop" id="blur-drop">
+        <div class="icon">🚗</div>
+        <div>Drag &amp; drop photos or a folder here, or click to choose files</div>
+        <div class="hint">
+          <a id="blur-pick-folder">Choose a whole folder</a> ·
+          JPG, PNG, WEBP or HEIC · GPS and other metadata are stripped from the output
+        </div>
+      </div>
+      <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/*" hidden id="blur-picker">
+      <input type="file" webkitdirectory multiple hidden id="blur-folder-picker">
+
+      <div class="editor" id="blur-editor">
+        <div class="nav">
+          <button class="btn ghost" id="blur-prev" title="Previous photo (←)">‹ Prev</button>
+          <span id="blur-counter">Photo 1 of 1</span>
+          <button class="btn ghost" id="blur-next" title="Next photo (→)">Next ›</button>
+        </div>
+        <div class="thumbs" id="blur-thumbs"></div>
+        <div class="canvas-wrap" id="blur-wrap">
+          <canvas id="blur-canvas"></canvas>
+          <div class="loading" id="blur-loading">Loading preview…</div>
+        </div>
+        <p class="tip">Drag on the photo to draw a box over the plate. Click a box to select it, drag it to move,
+          and drag the knob above it to tilt. Delete or right-click removes a box.</p>
+        <div class="field tilt" id="blur-tilt-row">
+          <label for="blur-tilt">Tilt selected box:</label>
+          <input type="range" id="blur-tilt" min="-90" max="90" step="0.5" value="0">
+          <span id="blur-tilt-val">0°</span>
+          <span class="keys">Q / E keys tilt by 1°, hold Shift for 5°</span>
+        </div>
+
+        <div class="field" style="margin-top:.75rem">
+          <label>Hide with:</label>
+          <label class="radio"><input type="radio" name="blur-mode" value="pixelate" checked> Pixelate</label>
+          <label class="radio"><input type="radio" name="blur-mode" value="blur"> Blur</label>
+          <label class="radio"><input type="radio" name="blur-mode" value="black"> Black box</label>
+        </div>
+        <div class="actions">
+          <button class="btn" id="blur-run">Blur &amp; download</button>
+          <button class="btn ghost" id="blur-undo">Undo box</button>
+          <button class="btn ghost" id="blur-clear-boxes">Clear boxes</button>
+          <button class="btn ghost" id="blur-remove">Remove photo</button>
+          <button class="btn ghost" id="blur-reset">Start over</button>
+        </div>
+      </div>
+
+      <div class="status" id="blur-status"></div>
+    </div>
+  </div>
+
+<script>
+  // ── Tab switching ──────────────────────────────────────
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+      document.getElementById("card").classList.toggle("wide", tab.dataset.tab === "blur");
+      if (tab.dataset.tab === "blur") Blur.redraw();
+    });
+  });
+
+  // ── Config per tab: endpoint, extension filter, extra form fields, output name ──
+  const TABS = {
+    convert: {
+      endpoint: "/convert",
+      accept: (name) => /\.(heic|heif)$/i.test(name),
+      noneMsg: "No .heic/.heif files found.",
+      download: "converted_png.zip",
+      extra: () => ({}),
+      verb: "Converting",
+      queue: false,   // process immediately on drop
+    },
+    shrink: {
+      endpoint: "/shrink",
+      accept: (name) => /\.png$/i.test(name),
+      noneMsg: "No .png files found.",
+      download: "shrunk_png.zip",
+      extra: () => ({ target_mb: document.getElementById("target").value }),
+      verb: "Shrinking",
+      queue: true,    // collect files, process when the button is clicked
+    },
+  };
+
+  // ── Wire up each tab's drop zone + picker ──────────────
+  for (const key of Object.keys(TABS)) setupTab(key);
+
+  function setupTab(key) {
+    const cfg = TABS[key];
+    const drop = document.querySelector(`[data-drop="${key}"]`);
+    const picker = document.querySelector(`[data-picker="${key}"]`);
+    const folderPicker = document.querySelector(`[data-folder-picker="${key}"]`);
+    const folderLink = document.querySelector(`[data-pick-folder="${key}"]`);
+    const status = document.querySelector(`[data-status="${key}"]`);
+
+    // Queue UI (only present on tabs with cfg.queue)
+    const queueBox = document.querySelector(`[data-queue="${key}"]`);
+    const queueList = document.querySelector(`[data-queue-list="${key}"]`);
+    const runBtn = document.querySelector(`[data-run="${key}"]`);
+    const clearBtn = document.querySelector(`[data-clear="${key}"]`);
+    let queue = [];
+    let busy = false;
+
+    drop.addEventListener("click", () => picker.click());
+    picker.addEventListener("change", () => { handle([...picker.files]); picker.value = ""; });
+
+    if (folderLink && folderPicker) {
+      folderLink.addEventListener("click", (e) => { e.stopPropagation(); folderPicker.click(); });
+      folderPicker.addEventListener("change", () => { handle([...folderPicker.files]); folderPicker.value = ""; });
+    }
+
+    wireDrop(drop, handle);
+
+    if (runBtn) runBtn.addEventListener("click", () => { if (queue.length && !busy) process(queue); });
+    if (clearBtn) clearBtn.addEventListener("click", () => { if (!busy) { queue = []; renderQueue(); status.innerHTML = ""; } });
+
+    // Dropped / picked files arrive here. Either process now or add to the queue.
+    function handle(files) {
+      const matched = files.filter(f => cfg.accept(f.name));
+      if (!matched.length) { status.innerHTML = `<span class="err">${cfg.noneMsg}</span>`; return; }
+      if (!cfg.queue) { process(matched); return; }
+
+      let added = 0;
+      for (const f of matched) {
+        if (queue.some(q => sameFile(q, f))) continue;  // skip duplicates
+        queue.push(f); added++;
+      }
+      renderQueue();
+      const skipped = matched.length - added;
+      status.innerHTML = `Added ${added} image(s)` + (skipped ? ` (${skipped} already in the list)` : "") + ".";
+    }
+
+    function renderQueue() {
+      if (!queueBox) return;
+      queueBox.classList.toggle("show", queue.length > 0);
+      queueList.innerHTML = "";
+      queue.forEach((f, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="name" title="${esc(f.name)}">${esc(f.name)}</span>
+                        <span class="size">${fmtSize(f.size)}</span>
+                        <button class="rm" title="Remove" aria-label="Remove">×</button>`;
+        li.querySelector(".rm").addEventListener("click", () => {
+          if (busy) return;
+          queue.splice(i, 1); renderQueue();
+        });
+        queueList.appendChild(li);
+      });
+      runBtn.textContent = `Shrink ${queue.length} image${queue.length === 1 ? "" : "s"}`;
+      runBtn.disabled = queue.length === 0 || busy;
+      clearBtn.disabled = queue.length === 0 || busy;
+    }
+
+    function setBusy(v) {
+      busy = v;
+      if (runBtn) { runBtn.disabled = v || queue.length === 0; clearBtn.disabled = v || queue.length === 0; }
+    }
+
+    async function process(files) {
+      setBusy(true);
+      status.innerHTML = `<span class="spinner"></span>${cfg.verb} ${files.length} image(s)…`;
+
+      const fd = new FormData();
+      files.forEach(f => fd.append("files", f, f.name));
+      for (const [k, v] of Object.entries(cfg.extra())) fd.append(k, v);
+
+      try {
+        const ok = await postAndDownload(cfg.endpoint, fd, cfg.download, status);
+        if (ok) {
+          status.innerHTML = `<span class="ok">✓ Done — ${files.length} image(s). Download started.</span>`;
+          if (cfg.queue) { queue = []; renderQueue(); }
+        }
+      } finally {
+        setBusy(false);
+      }
+    }
+  }
+
+  // ── Blur plate tab ─────────────────────────────────────
+  const Blur = (() => {
+    const drop = document.getElementById("blur-drop");
+    const picker = document.getElementById("blur-picker");
+    const editor = document.getElementById("blur-editor");
+    const thumbs = document.getElementById("blur-thumbs");
+    const wrap = document.getElementById("blur-wrap");
+    const canvas = document.getElementById("blur-canvas");
+    const loading = document.getElementById("blur-loading");
+    const status = document.getElementById("blur-status");
+    const ctx = canvas.getContext("2d");
+
+    const accept = (name) => /\.(jpe?g|png|webp|heic|heif)$/i.test(name);
+    // photos: { file, img, url, boxes: [{cx, cy, w, h, a}] } — centre/size are 0..1 fractions
+    // of the image, `a` is the tilt in degrees (clockwise). Geometry is done in canvas pixels.
+    let photos = [];
+    let current = -1;
+    let sel = -1;         // index of the selected box on the current photo
+    let drag = null;      // { mode: "draw"|"move"|"rotate", ... } in canvas pixels while dragging
+    let busy = false;
+    const tiltRow = document.getElementById("blur-tilt-row");
+    const tilt = document.getElementById("blur-tilt");
+    const tiltVal = document.getElementById("blur-tilt-val");
+
+    drop.addEventListener("click", () => picker.click());
+    picker.addEventListener("change", () => { add([...picker.files]); picker.value = ""; });
+    const folderPicker = document.getElementById("blur-folder-picker");
+    document.getElementById("blur-pick-folder").addEventListener("click", (e) => { e.stopPropagation(); folderPicker.click(); });
+    folderPicker.addEventListener("change", () => { add([...folderPicker.files]); folderPicker.value = ""; });
+    wireDrop(drop, add);
+
+    document.getElementById("blur-prev").addEventListener("click", () => step(-1));
+    document.getElementById("blur-next").addEventListener("click", () => step(1));
+    document.addEventListener("keydown", (e) => {
+      // Arrow keys step through photos while the blur tab is open and no input has focus.
+      if (!document.getElementById("panel-blur").classList.contains("active")) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+      if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
+      if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+      const b = selBox();
+      if (!b) return;
+      const stepDeg = e.shiftKey ? 5 : 1;
+      if (e.key === "q" || e.key === "Q") { b.a = clampAngle(b.a - stepDeg); syncTilt(); redraw(); e.preventDefault(); }
+      if (e.key === "e" || e.key === "E") { b.a = clampAngle(b.a + stepDeg); syncTilt(); redraw(); e.preventDefault(); }
+      if (e.key === "Delete" || e.key === "Backspace") { cur().boxes.splice(sel, 1); select(-1); renderThumbs(); e.preventDefault(); }
+    });
+    function step(delta) {
+      if (!photos.length) return;
+      show((current + delta + photos.length) % photos.length);
+    }
+
+    document.getElementById("blur-run").addEventListener("click", run);
+    document.getElementById("blur-undo").addEventListener("click", () => { if (cur()) { cur().boxes.pop(); select(-1); renderThumbs(); } });
+    document.getElementById("blur-clear-boxes").addEventListener("click", () => { if (cur()) { cur().boxes = []; select(-1); renderThumbs(); } });
+    tilt.addEventListener("input", () => { const b = selBox(); if (b) { b.a = +tilt.value; syncTilt(); redraw(); } });
+    document.getElementById("blur-remove").addEventListener("click", () => {
+      if (busy || !cur()) return;
+      URL.revokeObjectURL(cur().url);
+      photos.splice(current, 1);
+      current = Math.min(current, photos.length - 1);
+      if (photos.length === 0) reset(); else { renderThumbs(); show(current); }
+    });
+    document.getElementById("blur-reset").addEventListener("click", () => { if (!busy) reset(); });
+
+    function cur() { return photos[current]; }
+
+    function reset() {
+      photos.forEach(p => URL.revokeObjectURL(p.url));
+      photos = []; current = -1;
+      editor.classList.remove("show");
+      drop.classList.remove("compact");
+      status.innerHTML = "";
+    }
+
+    async function add(files) {
+      const matched = files.filter(f => accept(f.name));
+      if (!matched.length) { status.innerHTML = `<span class="err">No supported photos found.</span>`; return; }
+      const fresh = matched.filter(f => !photos.some(p => sameFile(p.file, f)))
+                           .map(f => ({ file: f, img: null, url: null, boxes: [] }));
+      photos.push(...fresh);
+      editor.classList.add("show");
+      drop.classList.add("compact");
+      renderThumbs();
+      if (current < 0) show(0);
+      status.innerHTML = `Added ${fresh.length} photo(s). Draw a box over the plate in each one.`;
+      // Fetch server previews (handles HEIC and EXIF rotation) one after another.
+      for (const p of fresh) await loadPreview(p);
+    }
+
+    async function loadPreview(p) {
+      const fd = new FormData();
+      fd.append("file", p.file, p.file.name);
+      try {
+        const res = await fetch("/preview", { method: "POST", body: fd });
+        if (!res.ok) throw new Error(await res.text() || "preview failed");
+        p.url = URL.createObjectURL(await res.blob());
+        const img = new Image();
+        await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = p.url; });
+        p.img = img;
+      } catch (err) {
+        p.error = err.message;
+      }
+      renderThumbs();
+      if (photos[current] === p) show(current);
+    }
+
+    function show(i) {
+      if (i !== current) { sel = -1; drag = null; }
+      current = i;
+      syncTilt();
+      renderThumbs();
+      const p = cur();
+      if (!p) return;
+      if (!p.img) {
+        loading.style.display = "grid";
+        loading.textContent = p.error ? "Could not load: " + p.error : "Loading preview…";
+        canvas.width = 640; canvas.height = 360;
+        return;
+      }
+      loading.style.display = "none";
+      canvas.width = p.img.naturalWidth;
+      canvas.height = p.img.naturalHeight;
+      redraw();
+    }
+
+    // ── Box geometry (canvas pixels) ──
+    const selBox = () => (cur() && sel >= 0) ? cur().boxes[sel] : null;
+    const clampAngle = (a) => Math.max(-90, Math.min(90, Math.round(a * 2) / 2));
+    const px = (b) => ({ cx: b.cx * canvas.width, cy: b.cy * canvas.height, w: b.w * canvas.width, h: b.h * canvas.height, a: b.a });
+    const handleLen = () => Math.max(22, canvas.width / 40);     // knob distance above the box
+    const handleHit = () => Math.max(12, canvas.width / 70);     // knob grab radius
+
+    // Position of the rotate knob for a box (above its top edge, following the tilt).
+    function knobPos(b) {
+      const { cx, cy, h, a } = px(b);
+      const r = a * Math.PI / 180, d = h / 2 + handleLen();
+      return { x: cx + d * Math.sin(r), y: cy - d * Math.cos(r) };
+    }
+    // Is canvas point (x, y) inside box b? Rotate the point into the box's own frame.
+    function inBox(b, x, y) {
+      const { cx, cy, w, h, a } = px(b);
+      const r = -a * Math.PI / 180, dx = x - cx, dy = y - cy;
+      const lx = dx * Math.cos(r) - dy * Math.sin(r), ly = dx * Math.sin(r) + dy * Math.cos(r);
+      return Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2;
+    }
+    function hitBox(x, y) { return cur().boxes.findLastIndex(b => inBox(b, x, y)); }
+
+    function select(i) { sel = i; syncTilt(); redraw(); }
+    function syncTilt() {
+      const b = selBox();
+      tiltRow.classList.toggle("show", !!b);
+      if (b) { tilt.value = b.a; tiltVal.textContent = `${b.a}°`; }
+    }
+
+    function redraw() {
+      const p = cur();
+      if (!p || !p.img) return;
+      ctx.drawImage(p.img, 0, 0);
+      ctx.lineWidth = Math.max(2, canvas.width / 400);
+      p.boxes.forEach((b, i) => drawBox(px(b), i === sel));
+      if (drag?.mode === "draw") {
+        drawBox({ cx: (drag.x0 + drag.x1) / 2, cy: (drag.y0 + drag.y1) / 2,
+                  w: Math.abs(drag.x1 - drag.x0), h: Math.abs(drag.y1 - drag.y0), a: 0 }, false, "#58d68d");
+      }
+    }
+
+    function drawBox({ cx, cy, w, h, a }, selected, color = "#4f8cff") {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(a * Math.PI / 180);
+      ctx.fillStyle = "rgba(79,140,255,.35)";
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.strokeStyle = selected ? "#ffffff" : color;
+      ctx.strokeRect(-w / 2, -h / 2, w, h);
+      if (selected) {
+        // Stem + knob above the box: drag the knob to tilt.
+        const d = h / 2 + handleLen(), r = handleHit() * 0.6;
+        ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(0, -d); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, -d, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.strokeStyle = "#4f8cff"; ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Map a pointer event to canvas pixel coordinates (canvas is CSS-scaled to fit).
+    function pos(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(canvas.width, (e.clientX - r.left) * canvas.width / r.width)),
+        y: Math.max(0, Math.min(canvas.height, (e.clientY - r.top) * canvas.height / r.height)),
+      };
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (busy || !cur()?.img || e.button !== 0) return;
+      const { x, y } = pos(e);
+      const b = selBox();
+      if (b) {
+        const k = knobPos(b);
+        if (Math.hypot(x - k.x, y - k.y) <= handleHit()) {
+          drag = { mode: "rotate" };
+          canvas.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+      const hit = hitBox(x, y);
+      if (hit >= 0) {
+        const hb = px(cur().boxes[hit]);
+        drag = { mode: "move", offX: x - hb.cx, offY: y - hb.cy };
+        select(hit);
+      } else {
+        select(-1);
+        drag = { mode: "draw", x0: x, y0: y, x1: x, y1: y };
+      }
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const { x, y } = pos(e);
+      if (drag.mode === "draw") { drag.x1 = x; drag.y1 = y; }
+      else if (drag.mode === "move") {
+        const b = selBox(); if (!b) return;
+        b.cx = (x - drag.offX) / canvas.width; b.cy = (y - drag.offY) / canvas.height;
+      } else if (drag.mode === "rotate") {
+        const b = selBox(); if (!b) return;
+        const { cx, cy } = px(b);
+        // Knob sits "above" the box, so the angle is measured from straight up.
+        let a = Math.atan2(y - cy, x - cx) * 180 / Math.PI + 90;
+        if (a > 180) a -= 360;
+        if (Math.abs(a) < 1.5) a = 0;  // snap to level
+        b.a = clampAngle(a);
+        syncTilt();
+      }
+      redraw();
+    });
+    canvas.addEventListener("pointerup", (e) => {
+      if (!drag) return;
+      if (drag.mode === "draw") {
+        const { x, y } = pos(e); drag.x1 = x; drag.y1 = y;
+        const W = canvas.width, H = canvas.height;
+        const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
+        if (w > 4 && h > 4) {
+          cur().boxes.push({ cx: (drag.x0 + drag.x1) / 2 / W, cy: (drag.y0 + drag.y1) / 2 / H, w: w / W, h: h / H, a: 0 });
+          sel = cur().boxes.length - 1;   // new box is selected so it can be tilted right away
+        }
+      }
+      drag = null; syncTilt(); redraw(); renderThumbs();
+    });
+    canvas.addEventListener("pointercancel", () => { drag = null; redraw(); });
+    // Right-click inside a box removes it.
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const p = cur(); if (!p?.img) return;
+      const { x, y } = pos(e);
+      const idx = hitBox(x, y);
+      if (idx >= 0) { p.boxes.splice(idx, 1); select(-1); renderThumbs(); }
+    });
+
+    function renderThumbs() {
+      thumbs.innerHTML = "";
+      photos.forEach((p, i) => {
+        const t = document.createElement("div");
+        t.className = "thumb" + (i === current ? " active" : "");
+        t.title = p.file.name;
+        t.innerHTML = (p.url ? `<img src="${p.url}" alt="">` : "")
+          + `<span class="badge ${p.boxes.length ? "" : "none"}">${p.boxes.length}</span>`;
+        t.addEventListener("click", () => show(i));
+        thumbs.appendChild(t);
+        if (i === current) t.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+      const done = photos.filter(p => p.boxes.length).length;
+      document.getElementById("blur-counter").textContent =
+        photos.length ? `Photo ${current + 1} of ${photos.length} · ${done} marked` : "";
+      document.getElementById("blur-prev").disabled = busy || photos.length < 2;
+      document.getElementById("blur-next").disabled = busy || photos.length < 2;
+      const run = document.getElementById("blur-run");
+      run.textContent = photos.length > 1 ? `Blur & download ${photos.length} photos` : "Blur & download";
+      run.disabled = busy || photos.length === 0;
+    }
+
+    async function run() {
+      if (busy || !photos.length) return;
+      const ready = photos.filter(p => p.img);
+      if (ready.length !== photos.length) { status.innerHTML = `<span class="err">Some previews are still loading or failed. Remove them or wait.</span>`; return; }
+      const noBoxes = photos.filter(p => p.boxes.length === 0).length;
+      if (noBoxes && !confirm(`${noBoxes} photo(s) have no box drawn and will be left as-is. Continue?`)) return;
+
+      busy = true; renderThumbs();
+      status.innerHTML = `<span class="spinner"></span>Processing ${photos.length} photo(s)…`;
+      const fd = new FormData();
+      photos.forEach(p => fd.append("files", p.file, p.file.name));
+      fd.append("boxes", JSON.stringify(photos.map(p => p.boxes)));
+      fd.append("mode", document.querySelector('input[name="blur-mode"]:checked').value);
+      try {
+        const ok = await postAndDownload("/blur", fd, "blurred_photos.zip", status);
+        if (ok) status.innerHTML = `<span class="ok">✓ Done — ${photos.length} photo(s). Download started.</span>`;
+      } finally {
+        busy = false; renderThumbs();
+      }
+    }
+
+    // _state is read by automated tests; it is not used by the page itself.
+    return { redraw, _state: () => ({ sel, boxes: cur()?.boxes ?? [], cw: canvas.width, ch: canvas.height, rect: canvas.getBoundingClientRect().toJSON() }) };
+  })();
+
+  // ── Shared helpers ─────────────────────────────────────
+
+  // Drag & drop onto `el`; dropped folders are walked recursively. Calls onFiles(File[]).
+  function wireDrop(el, onFiles) {
+    ["dragenter", "dragover"].forEach(ev =>
+      el.addEventListener(ev, (e) => { e.preventDefault(); el.classList.add("hover"); }));
+    ["dragleave", "drop"].forEach(ev =>
+      el.addEventListener(ev, (e) => { e.preventDefault(); el.classList.remove("hover"); }));
+    el.addEventListener("drop", async (e) => {
+      const entries = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry?.()).filter(Boolean);
+      if (entries.length) {
+        const files = [];
+        await Promise.all(entries.map(en => walk(en, files)));
+        onFiles(files);
+      } else {
+        onFiles([...e.dataTransfer.files]);
+      }
+    });
+  }
+
+  // POST a form, then trigger a download of the response. Server picks the filename
+  // (a single image comes back as that image; several come back as a ZIP).
+  async function postAndDownload(endpoint, fd, fallbackName, status) {
+    try {
+      const res = await fetch(endpoint, { method: "POST", body: fd });
+      if (!res.ok) {
+        status.innerHTML = `<span class="err">${esc(stripHtml(await res.text()) || "Failed.")}</span>`;
+        return false;
+      }
+      const blob = await res.blob();
+      const name = filenameFromHeader(res.headers.get("Content-Disposition")) || fallbackName;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      return true;
+    } catch (err) {
+      status.innerHTML = `<span class="err">Error: ${esc(err.message)}</span>`;
+      return false;
+    }
+  }
+
+  function sameFile(a, b) {
+    return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+  }
+
+  function filenameFromHeader(h) {
+    if (!h) return null;
+    const star = /filename\*=UTF-8''([^;]+)/i.exec(h);
+    if (star) return decodeURIComponent(star[1]);
+    const plain = /filename="?([^";]+)"?/i.exec(h);
+    return plain ? plain[1] : null;
+  }
+
+  // Flask error pages are HTML; pull out the human-readable message.
+  function stripHtml(s) {
+    const d = document.createElement("div"); d.innerHTML = s;
+    const p = d.querySelector("p"); return (p ? p.textContent : d.textContent).trim();
+  }
+
+  function fmtSize(bytes) {
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + " MB";
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
+    return bytes + " B";
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Recursively collect files from a dropped folder tree.
+  function walk(entry, out) {
+    return new Promise((resolve) => {
+      if (entry.isFile) {
+        entry.file(f => { out.push(f); resolve(); });
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const readBatch = () => reader.readEntries(async (batch) => {
+          if (!batch.length) return resolve();
+          await Promise.all(batch.map(en => walk(en, out)));
+          readBatch();
+        });
+        readBatch();
+      } else resolve();
+    });
+  }
+</script>
+</body>
+</html>
